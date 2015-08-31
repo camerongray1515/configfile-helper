@@ -39,6 +39,8 @@ def main():
         parser.print_help()
 
 def set_repo(config, repo_path):
+    repo_path = os.path.abspath(repo_path)
+
     if not os.path.isdir(repo_path):
         print("Path specified is not a valid directory")
         sys.exit()
@@ -48,6 +50,8 @@ def set_repo(config, repo_path):
     print("Repo path has been updated successfully")
 
 def set_var_file(config, file_path):
+    file_path = os.path.abspath(file_path)
+
     if not os.path.isfile(file_path):
         print("Path specified is not a file")
         sys.exit()
