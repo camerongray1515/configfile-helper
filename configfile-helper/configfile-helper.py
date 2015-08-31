@@ -68,7 +68,7 @@ def list_files(config):
 
     for path, subdirs, files in os.walk(repo_path):
         for name in files:
-            print(os.path.join(repo_path, name))
+            print(os.path.join(path.replace(repo_path, ""), name))
 
 def save_config_file(config):
     with open(CONFIG_FILE_PATH, "w") as configfile:
