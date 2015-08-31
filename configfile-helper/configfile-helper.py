@@ -70,6 +70,28 @@ def list_files(config):
         for name in files:
             print(os.path.join(path.replace(repo_path, ""), name))
 
+def get_context_for_file(config, filename):
+    variable_file_path = get_config_value(config, "Paths", "variable_file")
+
+    variables = configparser.ConfigParser()
+    variables.read(variable_file_path)
+
+    # First build up a dictionary of the variables in the GLOBAL section
+    # then go through the file sepecific ones and add them to the dict.
+    # If there is a variable in both the local and global sections,the
+    # local one should be used
+    template_context = {}
+    try:
+        for (key, value) in variables.items("GLOBAL"):
+            template_context[key] = value
+
+        for (key, value) in variables.items(filename):
+            template_context[key] = value
+    except configparser.NoSectionError:
+        pass # Don't care if either section is missing
+
+    return template_context
+
 def save_config_file(config):
     with open(CONFIG_FILE_PATH, "w") as configfile:
         config.write(configfile)
