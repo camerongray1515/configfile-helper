@@ -15,9 +15,9 @@ def main():
         action="store", metavar="PATH",
         help="Set the path to the config file repository to be used")
 
-    action_group.add_argument("--set-var-file",
+    action_group.add_argument("--set-context-file",
         action="store", metavar="PATH",
-        help="Set the path to the variable file")
+        help="Set the path to the context file")
 
     action_group.add_argument("--list-files", action="store_true",
         help="Lists all config files in the repository")
@@ -31,8 +31,8 @@ def main():
     # appropriate method
     if args.set_repo:
         set_repo(config, args.set_repo)
-    elif args.set_var_file:
-        set_var_file(config, args.set_var_file)
+    elif args.set_context_file:
+        set_context_file(config, args.set_context_file)
     elif args.list_files:
         list_files(config)
     else:
@@ -49,16 +49,16 @@ def set_repo(config, repo_path):
     save_config_file(config)
     print("Repo path has been updated successfully")
 
-def set_var_file(config, file_path):
+def set_context_file(config, file_path):
     file_path = os.path.abspath(file_path)
 
     if not os.path.isfile(file_path):
         print("Path specified is not a file")
         sys.exit()
 
-    set_config_value(config, "Paths", "variable_file", file_path)
+    set_config_value(config, "Paths", "context_file", file_path)
     save_config_file(config)
-    print("Variable file path has been updated successfully")
+    print("Context file path has been updated successfully")
 
 def list_files(config):
     repo_path = get_config_value(config, "Paths", "repo_path")
@@ -71,26 +71,30 @@ def list_files(config):
             print(os.path.join(path.replace(repo_path, ""), name))
 
 def get_context_for_file(config, filename):
-    variable_file_path = get_config_value(config, "Paths", "variable_file")
+    context_file_path = get_config_value(config, "Paths", "context_file")
 
-    variables = configparser.ConfigParser()
-    variables.read(variable_file_path)
+    context = configparser.ConfigParser()
+    try:
+        context.read(context_file_path)
+    except:
+        print("Context file could not be located or is invalid")
+        sys.exit()
 
-    # First build up a dictionary of the variables in the GLOBAL section
+    # First build up a dictionary of the context in the GLOBAL section
     # then go through the file sepecific ones and add them to the dict.
     # If there is a variable in both the local and global sections,the
     # local one should be used
-    template_context = {}
+    file_context = {}
     try:
-        for (key, value) in variables.items("GLOBAL"):
-            template_context[key] = value
+        for (key, value) in context.items("GLOBAL"):
+            file_context[key] = value
 
-        for (key, value) in variables.items(filename):
-            template_context[key] = value
+        for (key, value) in context.items(filename):
+            file_context[key] = value
     except configparser.NoSectionError:
         pass # Don't care if either section is missing
 
-    return template_context
+    return file_context
 
 def save_config_file(config):
     with open(CONFIG_FILE_PATH, "w") as configfile:
