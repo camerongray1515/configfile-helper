@@ -19,6 +19,9 @@ def main():
         action="store", metavar="PATH",
         help="Set the path to the variable file")
 
+    action_group.add_argument("--list-files", action="store_true",
+        help="Lists all config files in the repository")
+
     args = parser.parse_args()
 
     config = configparser.ConfigParser()
@@ -30,6 +33,8 @@ def main():
         set_repo(config, args.set_repo)
     elif args.set_var_file:
         set_var_file(config, args.set_var_file)
+    elif args.list_files:
+        list_files(config)
     else:
         parser.print_help()
 
@@ -38,7 +43,7 @@ def set_repo(config, repo_path):
         print("Path specified is not a valid directory")
         sys.exit()
 
-    set_config_value(config, "Paths", "repo_directory", repo_path)
+    set_config_value(config, "Paths", "repo_path", repo_path)
     save_config_file(config)
     print("Repo path has been updated successfully")
 
@@ -51,6 +56,16 @@ def set_var_file(config, file_path):
     save_config_file(config)
     print("Variable file path has been updated successfully")
 
+def list_files(config):
+    repo_path = get_config_value(config, "Paths", "repo_path")
+    if not repo_path:
+        print("You must set a config file repo first")
+        sys.exit()
+
+    for path, subdirs, files in os.walk(repo_path):
+        for name in files:
+            print(os.path.join(repo_path, name))
+
 def save_config_file(config):
     with open(CONFIG_FILE_PATH, "w") as configfile:
         config.write(configfile)
@@ -60,6 +75,15 @@ def set_config_value(config, section, index, value):
         config[section] = {}
 
     config[section][index] = value
+
+def get_config_value(config, section, index):
+    if section not in config:
+        return None
+
+    if index not in config[section]:
+        return None
+
+    return config[section][index]
 
 if __name__ == "__main__":
     main()
