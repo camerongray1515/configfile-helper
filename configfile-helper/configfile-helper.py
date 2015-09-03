@@ -2,6 +2,9 @@ import argparse
 import configparser
 import os
 import sys
+import re
+
+from jinja2 import Environment, DictLoader
 
 CONFIG_FILE_PATH = os.path.join(os.path.dirname(__file__), "config.ini")
 
@@ -66,9 +69,16 @@ def list_files(config):
         print("You must set a config file repo first")
         sys.exit()
 
+    # For each file on disk, we need to go through and render the
+    # template using the context to check whether the file is actually
+    # to be included or not and then print a list of files and
+    # their destinations for the given context
     for path, subdirs, files in os.walk(repo_path):
         for name in files:
-            print(os.path.join(path.replace(repo_path, ""), name))
+            file_path = os.path.join(path, name)
+            path_inside_repo = os.path.join(path.replace(repo_path, ""), name)
+            context = get_context_for_file(config, name)
+            print(render_template(config, context, file_path))
 
 def get_context_for_file(config, filename):
     context_file_path = get_config_value(config, "Paths", "context_file")
@@ -95,6 +105,33 @@ def get_context_for_file(config, filename):
         pass # Don't care if either section is missing
 
     return file_context
+
+def render_template(config, context, filename):
+    template_content = {}
+    with open(filename, "r") as f:
+        template_content["template"] = f.read()
+
+    jinja_env = Environment(loader=DictLoader(template_content))
+
+    rendered = jinja_env.get_template("template").render(context).splitlines()
+
+    # Separate the destination path on the first (non-empty) line from
+    # the rest of the file or return None if this file does not exist
+    # which would mean that the template should not be installed given
+    # the current context
+    dest_string = ""
+    while dest_string == "":
+        dest_string = rendered[0]
+        rendered = rendered[1:]
+
+    dest_match = re.search(r"^\s*#>\ +(.*)$", dest_string)
+
+    if not dest_match or not dest_match.group(1):
+        return None
+
+    destination_path = dest_match.group(1)
+    rendered_body = "\n".join(rendered)
+    return (destination_path, rendered_body)
 
 def save_config_file(config):
     with open(CONFIG_FILE_PATH, "w") as configfile:
