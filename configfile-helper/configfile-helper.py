@@ -5,6 +5,7 @@ import sys
 import re
 
 from jinja2 import Environment, DictLoader
+from tabulate import tabulate
 
 CONFIG_FILE_PATH = os.path.join(os.path.dirname(__file__), "config.ini")
 
@@ -73,12 +74,25 @@ def list_files(config):
     # template using the context to check whether the file is actually
     # to be included or not and then print a list of files and
     # their destinations for the given context
+    file_table = []
+
+    i = 1
     for path, subdirs, files in os.walk(repo_path):
         for name in files:
             file_path = os.path.join(path, name)
             path_inside_repo = os.path.join(path.replace(repo_path, ""), name)
             context = get_context_for_file(config, name)
-            print(render_template(config, context, file_path))
+            rendered_tuple = render_template(config, context, file_path)
+
+
+            if rendered_tuple:
+                file_table.append([i, path_inside_repo, rendered_tuple[0]])
+            else:
+                file_table.append([i, path_inside_repo, "Not due for "
+                    "installation in this context"])
+            i += 1
+
+    print(tabulate(file_table, headers=["#", "File", "Destination"]))
 
 def get_context_for_file(config, filename):
     context_file_path = get_config_value(config, "Paths", "context_file")
