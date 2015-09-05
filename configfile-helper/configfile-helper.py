@@ -115,6 +115,13 @@ def install_file(config, path, single_install):
 
     global APPROVE_ALL_INSTALLS
 
+    context = get_context_for_file(config, path)
+    try:
+        rendered_tuple = render_template(config, context, path)
+    except FileNotFoundError:
+        print("File {0} not found in repository. Skipping!".format(path))
+        return
+
     if not APPROVE_ALL_INSTALLS:
         response = ""
         while response.lower() not in valid_options:
@@ -127,13 +134,6 @@ def install_file(config, path, single_install):
         elif response == "n":
             print("Skipping install of {0}".format(path))
             return
-
-    context = get_context_for_file(config, path)
-    try:
-        rendered_tuple = render_template(config, context, path)
-    except FileNotFoundError:
-        print("File {0} not found in repository. Skipping!".format(path))
-        return
 
     if rendered_tuple:
         destination_path, rendered_body = rendered_tuple
