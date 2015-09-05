@@ -8,6 +8,7 @@ from jinja2 import Environment, DictLoader
 from tabulate import tabulate
 
 CONFIG_FILE_PATH = os.path.join(os.path.dirname(__file__), "config.ini")
+APPROVE_ALL_INSTALLS = False
 
 def main():
     parser = argparse.ArgumentParser(
@@ -26,6 +27,10 @@ def main():
     action_group.add_argument("--list-files", action="store_true",
         help="Lists all config files in the repository")
 
+    action_group.add_argument("--install-file", action="store",
+        metavar="PATH", help="Installs a given file.  Path should "
+            "be relative to the repository")
+
     args = parser.parse_args()
 
     config = configparser.ConfigParser()
@@ -39,6 +44,8 @@ def main():
         set_context_file(config, args.set_context_file)
     elif args.list_files:
         list_files(config)
+    elif args.install_file:
+        install_file(config, args.install_file, True)
     else:
         parser.print_help()
 
@@ -82,7 +89,7 @@ def list_files(config):
             file_path = os.path.join(path, name)
             path_inside_repo = os.path.join(path.replace(repo_path, ""), name)
             context = get_context_for_file(config, name)
-            rendered_tuple = render_template(config, context, file_path)
+            rendered_tuple = render_template(config, context, path_inside_repo)
 
 
             if rendered_tuple:
@@ -93,6 +100,55 @@ def list_files(config):
             i += 1
 
     print(tabulate(file_table, headers=["#", "File", "Destination"]))
+
+def install_file(config, path, single_install):
+    # single_install argument will remove the "yes/no to all" options
+    # from the confirmation message.  Should therefore be set true when
+    # we are only installing a single file
+
+    if single_install:
+        valid_options = ("y", "n")
+        option_string = "[Y]es, [N]o"
+    else:
+        valid_options = ("y", "n", "a")
+        option_string = "[Y]es, [N]o, Yes to [A]ll"
+
+    global APPROVE_ALL_INSTALLS
+
+    if not APPROVE_ALL_INSTALLS:
+        response = ""
+        while response.lower() not in valid_options:
+            response = input("Are you sure you want to install {0}, this will "
+                "overwrite any existing files at the destination? {1}: "
+                "".format(path, option_string))
+
+        if response == "a":
+            APPROVE_ALL_INSTALLS = True
+        elif response == "n":
+            print("Skipping install of {0}".format(path))
+            return
+
+    context = get_context_for_file(config, path)
+    try:
+        rendered_tuple = render_template(config, context, path)
+    except FileNotFoundError:
+        print("File {0} not found in repository. Skipping!".format(path))
+        return
+
+    if rendered_tuple:
+        destination_path, rendered_body = rendered_tuple
+    else:
+        print("File {0} is not due for installation in this context. Skipping!"
+            "".format(path))
+        return
+    
+    print("Installing {0} to {1}... ".format(path, destination_path), end="")
+
+    # Do stuff to install file
+
+    print("Done!")
+
+
 
 def get_context_for_file(config, filename):
     context_file_path = get_config_value(config, "Paths", "context_file")
@@ -120,9 +176,11 @@ def get_context_for_file(config, filename):
 
     return file_context
 
-def render_template(config, context, filename):
+def render_template(config, context, path_inside_repo):
+    file_path = os.path.join(config["Paths"]["repo_path"], path_inside_repo)
+
     template_content = {}
-    with open(filename, "r") as f:
+    with open(file_path, "r") as f:
         template_content["template"] = f.read()
 
     jinja_env = Environment(loader=DictLoader(template_content))
