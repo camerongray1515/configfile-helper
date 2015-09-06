@@ -6,39 +6,49 @@ import re
 
 from jinja2 import Environment, DictLoader
 from tabulate import tabulate
+from argparse import RawTextHelpFormatter
 
 CONFIG_FILE_PATH = os.path.join(os.path.dirname(__file__), "config.ini")
 APPROVE_ALL_INSTALLS = False
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Configuration File Helper")
+    command_table = [
+        ["set-context-file", "FILE", "Set the path to the context file"],
+        ["set-vcs-update-command", "COMMAND", "Set the shell command to cause "
+            "the VCS used for the file repo to update to the latest"],
+        ["list-files", "", "Lists all config files in the repository"],
+        ["install-file", "FILE", "Installs a given file.  Path should be "
+            "relative to the repository"],
+        ["sync-all", "", "Installs all files that in the repo are eligible to "
+            "be installed in this context"]
+    ]
+    parser = argparse.ArgumentParser(formatter_class=RawTextHelpFormatter,
+        description="The following are valid commands:\n" + 
+            tabulate(command_table, headers=["Command", "Args", "Description"])
+    )
 
-    action_group = parser.add_mutually_exclusive_group()
+    parser.add_argument("command", action="store")
+    parser.add_argument("args", action="store", nargs="*")
 
-    action_group.add_argument("--set-repo",
-        action="store", metavar="PATH",
-        help="Set the path to the config file repository to be used")
+    # action_group.add_argument("set-context-file",
+    #     action="store", metavar="PATH",
+    #     help="Set the path to the context file")
 
-    action_group.add_argument("--set-context-file",
-        action="store", metavar="PATH",
-        help="Set the path to the context file")
+    # action_group.add_argument("set-vcs-update-command",
+    #     action="store", metavar="COMMAND",
+    #     help="Set the shell command to cause the VCS used for the file "
+    #         "repo to update to the latest version, e.g. 'git pull'")
 
-    action_group.add_argument("--set-vcs-update-command",
-        action="store", metavar="COMMAND",
-        help="Set the shell command to cause the VCS used for the file "
-            "repo to update to the latest version, e.g. 'git pull'")
+    # action_group.add_argument("list-files", action="store_true",
+    #     help="Lists all config files in the repository")
 
-    action_group.add_argument("--list-files", action="store_true",
-        help="Lists all config files in the repository")
+    # action_group.add_argument("install-file", action="store",
+    #     metavar="PATH", help="Installs a given file.  Path should "
+    #         "be relative to the repository")
 
-    action_group.add_argument("--install-file", action="store",
-        metavar="PATH", help="Installs a given file.  Path should "
-            "be relative to the repository")
-
-    action_group.add_argument("--sync-all", action="store_true",
-        help="Installs all files that in the repo are eligible to be "
-            "installed in this context")
+    # action_group.add_argument("sync-all", action="store_true",
+    #     help="Installs all files that in the repo are eligible to be "
+    #         "installed in this context")
 
     parser.add_argument("--vcs-update", action="store_true", help="Run the "
         "predefined VCS update command (e.g. git pull) on the file repo before"
@@ -54,20 +64,30 @@ def main():
 
     # Check which method was specified and route it to the
     # appropriate method
-    if args.set_repo:
-        set_repo(config, args.set_repo)
-    elif args.set_context_file:
-        set_context_file(config, args.set_context_file)
-    elif args.set_vcs_update_command:
-        set_vcs_update_command(config, args.set_vcs_update_command)
-    elif args.list_files:
+    if args.command == "set-repo":
+        set_repo(config, get_arg(parser, args.args, 0))
+    elif args.command == "set-context-file":
+        set_context_file(config, get_arg(parser, args.args, 0))
+    elif args.command == "set-vcs-update-command":
+        set_vcs_update_command(config, get_arg(parser, args.args, 0))
+    elif args.command == "list-files":
         list_files(config)
-    elif args.install_file:
-        install_file(config, args.install_file, True)
-    elif args.sync_all:
+    elif args.command == "install-file":
+        install_file(config, get_arg(parser, args.args, 0), True)
+    elif args.command == "sync-all":
         sync_all(config)
     else:
-        parser.print_help()
+        print("'{0}' is not a valid command.  See '{1} --help'".format(
+            args.command, sys.argv[0]))
+
+def get_arg(parser, args, index):
+    try:
+        arg = args[index]
+        return arg
+    except IndexError:
+        print("One or more required arguments are missing. See '{0} --help'"
+            "".format(sys.argv[0]))
+        sys.exit()
 
 def vcs_update_repo(config):
     # Switch to the repo directory and run the VCS update command
