@@ -198,10 +198,13 @@ def install_file(config, path, single_install):
     
     print("Installing {0} to {1}... ".format(path, destination_path), end="")
 
-    # Do stuff to install file
-
-    print("Done!")
-
+    try:
+        with open(destination_path, "w") as f:
+            f.write(rendered_body)
+            print("Done!")
+    except PermissionError:
+        print("ERROR!")
+        print("\tYou do not have permission for this location. Skipping!")
 
 def get_context_for_file(config, filename):
     context_file_path = get_config_value(config, "Paths", "context_file")
