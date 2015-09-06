@@ -199,6 +199,11 @@ def install_file(config, path, single_install):
     print("Installing {0} to {1}... ".format(path, destination_path), end="")
 
     try:
+        # If the directory leading up to the destination path doesn't exist,
+        # create it
+        if not os.path.isdir(os.path.dirname(destination_path)):
+            os.makedirs(os.path.dirname(destination_path), exist_ok=True)
+
         with open(destination_path, "w") as f:
             f.write(rendered_body)
             print("Done!")
