@@ -24,6 +24,11 @@ def main():
         action="store", metavar="PATH",
         help="Set the path to the context file")
 
+    action_group.add_argument("--set-vcs-update-command",
+        action="store", metavar="COMMAND",
+        help="Set the shell command to cause the VCS used for the file "
+            "repo to update to the latest version, e.g. 'git pull'")
+
     action_group.add_argument("--list-files", action="store_true",
         help="Lists all config files in the repository")
 
@@ -35,10 +40,17 @@ def main():
         help="Installs all files that in the repo are eligible to be "
             "installed in this context")
 
+    parser.add_argument("--vcs-update", action="store_true", help="Run the "
+        "predefined VCS update command (e.g. git pull) on the file repo before"
+        " executing the specified command")
+
     args = parser.parse_args()
 
     config = configparser.ConfigParser()
     config.read(CONFIG_FILE_PATH)
+
+    if args.vcs_update:
+        vcs_update_repo(config)
 
     # Check which method was specified and route it to the
     # appropriate method
@@ -46,6 +58,8 @@ def main():
         set_repo(config, args.set_repo)
     elif args.set_context_file:
         set_context_file(config, args.set_context_file)
+    elif args.set_vcs_update_command:
+        set_vcs_update_command(config, args.set_vcs_update_command)
     elif args.list_files:
         list_files(config)
     elif args.install_file:
@@ -54,6 +68,22 @@ def main():
         sync_all(config)
     else:
         parser.print_help()
+
+def vcs_update_repo(config):
+    # Switch to the repo directory and run the VCS update command
+    command = get_config_value(config, "Commands", "vcs_update")
+    if not command:
+        print("You must set a VCS update command with the "
+            "--set-vcs-update-command option.")
+        sys.exit()
+
+    repo_path = get_config_value(config, "Paths", "repo_path")
+    if not repo_path:
+        print("You must set a config file repo first")
+        sys.exit()
+
+    os.chdir(repo_path)
+    os.system(command)
 
 def set_repo(config, repo_path):
     repo_path = os.path.abspath(repo_path)
@@ -76,6 +106,11 @@ def set_context_file(config, file_path):
     set_config_value(config, "Paths", "context_file", file_path)
     save_config_file(config)
     print("Context file path has been updated successfully")
+
+def set_vcs_update_command(config, command):
+    set_config_value(config, "Commands", "vcs_update", command)
+    save_config_file(config)
+    print("VCS update command has been updated successfully")
 
 def list_files(config):
     repo_path = get_config_value(config, "Paths", "repo_path")
