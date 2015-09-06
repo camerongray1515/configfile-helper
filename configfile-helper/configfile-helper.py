@@ -31,6 +31,10 @@ def main():
         metavar="PATH", help="Installs a given file.  Path should "
             "be relative to the repository")
 
+    action_group.add_argument("--sync-all", action="store_true",
+        help="Installs all files that in the repo are eligible to be "
+            "installed in this context")
+
     args = parser.parse_args()
 
     config = configparser.ConfigParser()
@@ -46,6 +50,8 @@ def main():
         list_files(config)
     elif args.install_file:
         install_file(config, args.install_file, True)
+    elif args.sync_all:
+        sync_all(config)
     else:
         parser.print_help()
 
@@ -101,6 +107,19 @@ def list_files(config):
 
     print(tabulate(file_table, headers=["#", "File", "Destination"]))
 
+def sync_all(config):
+    repo_path = get_config_value(config, "Paths", "repo_path")
+    if not repo_path:
+        print("You must set a config file repo first")
+        sys.exit()
+
+    print("Installing all files")
+    for path, subdirs, files in os.walk(repo_path):
+        for name in files:
+            path_inside_repo = os.path.join(path.replace(repo_path, ""), name)
+            install_file(config, path_inside_repo, False)
+    print("Complete!")
+
 def install_file(config, path, single_install):
     # single_install argument will remove the "yes/no to all" options
     # from the confirmation message.  Should therefore be set true when
@@ -149,7 +168,6 @@ def install_file(config, path, single_install):
     print("Done!")
 
 
-
 def get_context_for_file(config, filename):
     context_file_path = get_config_value(config, "Paths", "context_file")
 
@@ -177,7 +195,15 @@ def get_context_for_file(config, filename):
     return file_context
 
 def render_template(config, context, path_inside_repo):
-    file_path = os.path.join(config["Paths"]["repo_path"], path_inside_repo)
+    repo_path = get_config_value(config, "Paths", "repo_path")
+    if not repo_path:
+        print("You must set a config file repo first")
+        sys.exit()
+
+    if path_inside_repo[0] == "/":
+        path_inside_repo = path_inside_repo[1:]
+
+    file_path = os.path.join(repo_path, path_inside_repo)
 
     template_content = {}
     with open(file_path, "r") as f:
