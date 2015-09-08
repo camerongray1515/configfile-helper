@@ -13,6 +13,7 @@ APPROVE_ALL_INSTALLS = False
 
 def main():
     command_table = [
+        ["set-repo", "FILE", "Set the path to the file repository"],
         ["set-context-file", "FILE", "Set the path to the context file"],
         ["set-vcs-update-command", "COMMAND", "Set the shell command to cause "
             "the VCS used for the file repo to update to the latest"],
