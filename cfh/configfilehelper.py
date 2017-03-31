@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import argparse
 import configparser
 import os
@@ -8,7 +9,13 @@ from jinja2 import Environment, DictLoader
 from tabulate import tabulate
 from argparse import RawTextHelpFormatter
 
-CONFIG_FILE_PATH = os.path.join(os.path.dirname(__file__), "config.ini")
+USERNAME = os.environ.get("SUDO_USER") or os.environ.get("USER")
+if (not USERNAME):
+    print("Username could not be determined, cannot continue!")
+    sys.exit(1)
+
+HOMEDIR = os.path.expanduser("~" + USERNAME)
+CONFIG_FILE_PATH = os.path.join(HOMEDIR, ".cfhrc")
 APPROVE_ALL_INSTALLS = False
 
 def main():
@@ -24,7 +31,7 @@ def main():
             "be installed in this context"]
     ]
     parser = argparse.ArgumentParser(formatter_class=RawTextHelpFormatter,
-        description="The following are valid commands:\n" + 
+        description="The following are valid commands:\n" +
             tabulate(command_table, headers=["Command", "Args", "Description"])
     )
 
@@ -197,6 +204,12 @@ def install_file(config, path, single_install):
         print("File {0} not found in repository. Skipping!".format(path))
         return
 
+    # Skip files without a specified destination (i.e. not due for installation)
+    if rendered_tuple:
+        destination_path, rendered_body = rendered_tuple
+    else:
+        return
+
     if not APPROVE_ALL_INSTALLS:
         response = ""
         while response.lower() not in valid_options:
@@ -210,13 +223,6 @@ def install_file(config, path, single_install):
             print("Skipping install of {0}".format(path))
             return
 
-    if rendered_tuple:
-        destination_path, rendered_body = rendered_tuple
-    else:
-        print("File {0} is not due for installation in this context. Skipping!"
-            "".format(path))
-        return
-    
     print("Installing {0} to {1}... ".format(path, destination_path), end="")
 
     try:
@@ -282,7 +288,7 @@ def render_template(config, context, path_inside_repo):
     # which would mean that the template should not be installed given
     # the current context
     dest_string = ""
-    while dest_string == "":
+    while dest_string == "" and rendered:
         dest_string = rendered[0]
         rendered = rendered[1:]
 
@@ -291,7 +297,13 @@ def render_template(config, context, path_inside_repo):
     if not dest_match or not dest_match.group(1):
         return None
 
-    destination_path = dest_match.group(1)
+    # Replace leading tilde with tilde followed by username to correctly handle
+    # when sudo is used
+    destination_path = dest_match.group(1).strip()
+    if destination_path[0] == "~":
+        destination_path = destination_path[1:]
+        destination_path = os.path.expanduser("~" + USERNAME + destination_path)
+
     rendered_body = "\n".join(rendered)
     return (destination_path, rendered_body)
 
